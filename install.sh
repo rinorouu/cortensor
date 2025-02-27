@@ -1,55 +1,72 @@
 #!/bin/bash
 
-# One-click Installation Script for Cortensor (Fixed Version)
+# Fixed One-click Installation Script with Proper Permissions
 # Run this script as root/sudo
 
 set -e  # Exit immediately if any command fails
 
-# Install git if not exists
-if ! command -v git &> /dev/null; then
-    apt-get update && apt-get install -y git
-fi
-
-# Clone repository
-echo "Cloning repository..."
-git clone https://github.com/cortensor/installer
-cd installer
-
-# Run installation scripts
-echo "Installing Docker..."
-./install-docker-ubuntu.sh
-
-echo "Installing IPFS..."
-./install-ipfs-linux.sh
-
-echo "Installing Cortensor..."
-./install-linux.sh
-
 # Create deploy user if not exists
 if ! id "deploy" &>/dev/null; then
+    echo "Creating deploy user..."
     useradd -m -s /bin/bash deploy
+    usermod -aG sudo deploy  # Grant sudo privileges if needed
 fi
 
-# Copy files and set permissions (FIXED PATH)
-echo "Setting up deploy user..."
-mkdir -p /home/deploy/installer
-cp -Rf ./* /home/deploy/installer
-chown -R deploy:deploy /home/deploy/installer
+# Work in deploy user's home directory
+DEPLOY_HOME="/home/deploy"
 
-# Verify installations as deploy user
-echo "Verifying installations..."
-sudo -u deploy sh -c 'cd ~ && ls -al /usr/local/bin/cortensord'
-sudo -u deploy sh -c 'cd ~ && ls -al $HOME/.cortensor/bin/cortensord'
-sudo -u deploy sh -c 'cd ~ && ls -al /etc/systemd/system/cortensor.service'
-sudo -u deploy sh -c 'cd ~ && ls -al $HOME/.cortensor/bin/start-cortensor.sh'
-sudo -u deploy sh -c 'cd ~ && ls -al $HOME/.cortensor/bin/stop-cortensor.sh'
+# Install dependencies as root
+echo "Installing system dependencies..."
+apt-get update
+apt-get install -y git curl
 
-# Check Docker and IPFS versions
-echo "Docker Version: $(docker --version)"
-echo "IPFS Version: $(ipfs --version)"
+# Run installer as deploy user
+echo "Running installation as deploy user..."
+sudo -u deploy sh -c "
+    set -e
+    
+    # Work in user's home directory
+    cd ${DEPLOY_HOME}
+    
+    # Clean previous installation
+    rm -rf installer
+    
+    # Clone repository
+    echo 'Cloning repository...'
+    git clone https://github.com/cortensor/installer
+    cd installer
+    
+    # Install Docker
+    echo 'Installing Docker...'
+    ./install-docker-ubuntu.sh
+    
+    # Install IPFS
+    echo 'Installing IPFS...'
+    ./install-ipfs-linux.sh
+    
+    # Install Cortensor
+    echo 'Installing Cortensor...'
+    ./install-linux.sh
+    
+    # Verify installations
+    echo 'Verifying installations...'
+    ls -al /usr/local/bin/cortensord
+    ls -al ${DEPLOY_HOME}/.cortensor/bin/cortensord
+    ls -al /etc/systemd/system/cortensor.service
+    ls -al ${DEPLOY_HOME}/.cortensor/bin/start-cortensor.sh
+    ls -al ${DEPLOY_HOME}/.cortensor/bin/stop-cortensor.sh
+    
+    # Initialize IPFS
+    ipfs init
+"
 
-# Generate key as deploy user
+# Post-installation checks
+echo "Checking Docker and IPFS versions..."
+sudo -u deploy docker --version
+sudo -u deploy ipfs --version
+
+# Generate keys as deploy user
 echo "Generating keys..."
-sudo -u deploy /usr/local/bin/cortensord /home/deploy/.cortensor/.env tool gen_key
+sudo -u deploy /usr/local/bin/cortensord ${DEPLOY_HOME}/.cortensor/.env tool gen_key
 
-echo "Installation completed! Have a nice day cortensorian ☕"
+echo "Installation completed successfully!"
