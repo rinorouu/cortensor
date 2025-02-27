@@ -18,6 +18,7 @@ chmod +x install-docker-ubuntu.sh install-ipfs-linux.sh install-linux.sh
 ./install-docker-ubuntu.sh
 ./install-ipfs-linux.sh
 ./install-linux.sh
+cd
 
 echo "Setting up deploy user directory..."
 cp -Rf ./installer /home/deploy/installer
