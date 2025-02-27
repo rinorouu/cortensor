@@ -1,32 +1,43 @@
 #!/bin/bash
 
+set -e 
 
-# Clone repository
+if ! command -v git &> /dev/null; then
+    apt-get update && apt-get install -y git
+fi
+
+echo "Cloning repository..."
 git clone https://github.com/cortensor/installer
-cd installer || exit
+cd installer
 
-# Run installation scripts
-sudo ./install-docker-ubuntu.sh
-sudo ./install-ipfs-linux.sh
-sudo ./install-linux.sh
+echo "Installing Docker..."
+./install-docker-ubuntu.sh
 
-# Copy files to deploy user's home
-sudo mkdir -p /home/deploy/installer
-sudo cp -Rf . /home/deploy/installer
-sudo chown -R deploy:deploy /home/deploy/installer
+echo "Installing IPFS..."
+./install-ipfs-linux.sh
 
-# Verify installations as deploy user
-sudo -u deploy /bin/bash <<-'EOF'
-    echo -e "\n=== Checking file permissions ==="
-    ls -al /usr/local/bin/cortensord
-    ls -al "$HOME/.cortensor/bin/cortensord"
-    ls -al /etc/systemd/system/cortensor.service
-    ls -al "$HOME/.cortensor/bin/start-cortensor.sh"
-    ls -al "$HOME/.cortensor/bin/stop-cortensor.sh"
-    
-    echo -e "\n=== Checking software versions ==="
-    docker --version
-    ipfs --version
-EOF
+echo "Installing Cortensor..."
+./install-linux.sh
 
-echo -e "\nInstallation completed!"
+if ! id "deploy" &>/dev/null; then
+    useradd -m -s /bin/bash deploy
+fi
+
+echo "Setting up deploy user..."
+cp -Rf ./installer /home/deploy/installer
+chown -R deploy:deploy /home/deploy/installer
+
+echo "Verifying installations..."
+sudo -u deploy sh -c 'cd ~ && ls -al /usr/local/bin/cortensord'
+sudo -u deploy sh -c 'cd ~ && ls -al $HOME/.cortensor/bin/cortensord'
+sudo -u deploy sh -c 'cd ~ && ls -al /etc/systemd/system/cortensor.service'
+sudo -u deploy sh -c 'cd ~ && ls -al $HOME/.cortensor/bin/start-cortensor.sh'
+sudo -u deploy sh -c 'cd ~ && ls -al $HOME/.cortensor/bin/stop-cortensor.sh'
+
+echo "Docker Version: $(docker --version)"
+echo "IPFS Version: $(ipfs --version)"
+
+echo "Generating new keys..."
+sudo -u deploy /usr/local/bin/cortensord /home/deploy/.cortensor/.env tool gen_key
+
+echo "Installation completed! Have a good day Cortensorian ☕"
