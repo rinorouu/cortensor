@@ -1,9 +1,16 @@
 #!/bin/bash
 
-set -e  # Exit immediately if a command exits with a non-zero status
+set -e  # Hentikan script jika ada error
 
 echo "Cloning Cortensor installer..."
 git clone https://github.com/cortensor/installer
+
+# Pastikan folder 'installer' sudah ada sebelum lanjut
+while [ ! -d "installer" ]; do
+    echo "Waiting for installer folder..."
+    sleep 2
+done
+
 cd installer
 
 echo "Installing dependencies..."
@@ -13,6 +20,7 @@ chmod +x install-docker-ubuntu.sh install-ipfs-linux.sh install-linux.sh
 ./install-linux.sh
 
 echo "Setting up deploy user directory..."
+cp -Rf ./installer /home/deploy/installer
 chown -R deploy:deploy /home/deploy/installer
 
 echo "Switching to deploy user..."
@@ -30,11 +38,8 @@ echo "Checking Docker and IPFS versions..."
 docker version
 ipfs version
 
-sudo su deploy
-cd ~/
-
 echo "Generating key for Cortensor..."
-/usr/local/bin/cortensord ~/.cortensor/.env tool gen_key
+/usr/local/bin/cortensord \$HOME/.cortensor/.env tool gen_key
 EOF
 
 echo "Installation completed!"
